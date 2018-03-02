@@ -54,11 +54,10 @@ import org.nuxeo.ecm.platform.threed.ThreeD;
 import org.nuxeo.ecm.platform.threed.ThreeDDocument;
 import org.nuxeo.ecm.platform.threed.ThreeDRenderView;
 import org.nuxeo.ecm.platform.threed.service.ThreeDService;
-import org.nuxeo.runtime.test.runner.ConditionalIgnoreRule;
 import org.nuxeo.runtime.test.runner.Deploy;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
-import org.nuxeo.runtime.test.runner.RuntimeHarness;
+import org.nuxeo.runtime.test.runner.HotDeployer;
 
 /**
  * Test 3D thumbnail
@@ -70,6 +69,7 @@ import org.nuxeo.runtime.test.runner.RuntimeHarness;
 @RepositoryConfig(cleanup = Granularity.METHOD)
 @Deploy("org.nuxeo.ecm.platform.commandline.executor")
 @Deploy("org.nuxeo.ecm.automation.core")
+@Deploy("org.nuxeo.ecm.platform.tag")
 @Deploy("org.nuxeo.ecm.platform.picture.core")
 @Deploy("org.nuxeo.ecm.platform.picture.api")
 @Deploy("org.nuxeo.ecm.platform.picture.convert")
@@ -83,7 +83,7 @@ public class TestThreeDThumbnail {
     protected CoreSession session;
 
     @Inject
-    protected RuntimeHarness runtimeHarness;
+    protected HotDeployer hotDeployer;
 
     @Inject
     protected ThreeDService threeDService;
@@ -111,17 +111,18 @@ public class TestThreeDThumbnail {
     }
 
     @Test
-    @ConditionalIgnoreRule.Ignore(condition = ConditionalIgnoreRule.IgnoreWindows.class)
+    // @ConditionalIgnoreRule.Ignore(condition = ConditionalIgnoreRule.IgnoreWindows.class)
     public void testPictureThumbnail() throws Exception {
         DocumentModel threed = session.createDocumentModel("/", "threed", "ThreeD");
         threed = session.createDocument(threed);
         session.save();
         Blob blob = Blobs.createBlob(getFileFromPath("test-data/suzanne.obj"), "image/gif", null, "suzanne.obj");
-        runtimeHarness.deployContrib("org.nuxeo.ecm.platform.threed.core",
-            "OSGI-INF/threed-service-contrib-override.xml");
+        hotDeployer.deploy("org.nuxeo.ecm.platform.threed.core:OSGI-INF/threed-service-contrib-override.xml");
+        // the deploy has detached the DocumentModel from session so we have to request it again
+        threed = session.getDocument(threed.getRef());
         Date timeBefore = new Date();
         updateThreeDDocument(threed, new ThreeD(blob, null, null));
-        long timeDelta = (new Date()).getTime() - timeBefore.getTime();
+        long timeDelta = new Date().getTime() - timeBefore.getTime();
         session.saveDocument(threed);
         session.save();
 
@@ -136,7 +137,6 @@ public class TestThreeDThumbnail {
         Collection<ThreeDRenderView> renderViews = threed.getAdapter(ThreeDDocument.class).getRenderViews();
         Blob pictureUsualThumbnail = renderViews.iterator().next().getContent();
         assertEquals(pictureUsualThumbnail.getFilename(), pictureThumbnail.getThumbnail(session).getFilename());
-        runtimeHarness.undeployContrib("org.nuxeo.ecm.platform.threed.core",
-            "OSGI-INF/threed-service-contrib-override.xml");
+        // hotDeployer.undeploy("org.nuxeo.ecm.platform.threed.core:OSGI-INF/threed-service-contrib-override.xml");
     }
 }
