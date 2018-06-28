@@ -18,6 +18,27 @@
  */
 package org.nuxeo.ecm.platform.threed.service;
 
+import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.RENDER_VIEWS_PROPERTY;
+import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.TRANSMISSIONS_PROPERTY;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.BATCH_CONVERTER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.COLLADA2GLTF_CONVERTER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.COORDS_PARAMETER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.DIMENSIONS_PARAMETER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.LOD_IDS_PARAMETER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.MAX_POLY_PARAMETER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.OPERATORS_PARAMETER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.PERC_POLY_PARAMETER;
+import static org.nuxeo.ecm.platform.threed.convert.Constants.RENDER_IDS_PARAMETER;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.core.api.Blob;
@@ -34,20 +55,6 @@ import org.nuxeo.runtime.api.Framework;
 import org.nuxeo.runtime.model.ComponentContext;
 import org.nuxeo.runtime.model.ComponentInstance;
 import org.nuxeo.runtime.model.DefaultComponent;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import static org.nuxeo.ecm.core.work.api.Work.State.*;
-import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.RENDER_VIEWS_PROPERTY;
-import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.TRANSMISSIONS_PROPERTY;
-import static org.nuxeo.ecm.platform.threed.convert.Constants.*;
 
 /**
  * Default implementation of {@link ThreeDService}
@@ -259,12 +266,11 @@ public class ThreeDServiceImpl extends DefaultComponent implements ThreeDService
     public ThreeDBatchProgress getBatchProgress(String repositoryName, String docId) {
         WorkManager workManager = Framework.getService(WorkManager.class);
         Work work = new ThreeDBatchUpdateWork(repositoryName, docId);
-        Work workRunning = workManager.find(work.getId(), RUNNING);
-        if (workRunning != null) {
-            return new ThreeDBatchProgress(ThreeDBatchProgress.STATUS_CONVERSION_RUNNING, workRunning.getStatus());
+        Work.State workState = workManager.getWorkState(work.getId());
+        if (workState == Work.State.RUNNING) {
+            return new ThreeDBatchProgress(ThreeDBatchProgress.STATUS_CONVERSION_RUNNING, workState.toString());
         }
-        Work workScheduled = workManager.find(work.getId(), SCHEDULED);
-        if (workScheduled != null) {
+        if (workState == Work.State.SCHEDULED) {
             return new ThreeDBatchProgress(ThreeDBatchProgress.STATUS_CONVERSION_QUEUED, "");
         }
         return new ThreeDBatchProgress(ThreeDBatchProgress.STATUS_CONVERSION_UNKNOWN, "");

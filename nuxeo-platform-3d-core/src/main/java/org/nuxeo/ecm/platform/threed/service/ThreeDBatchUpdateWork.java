@@ -18,6 +18,18 @@
  */
 package org.nuxeo.ecm.platform.threed.service;
 
+import static org.nuxeo.ecm.core.api.CoreSession.ALLOW_VERSION_WRITE;
+import static org.nuxeo.ecm.platform.threed.ThreeDConstants.THREED_TYPE;
+import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.MAIN_INFO_PROPERTY;
+import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.RENDER_VIEWS_PROPERTY;
+import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.TRANSMISSIONS_PROPERTY;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.nuxeo.ecm.core.api.DocumentModel;
@@ -28,8 +40,6 @@ import org.nuxeo.ecm.core.event.Event;
 import org.nuxeo.ecm.core.event.EventService;
 import org.nuxeo.ecm.core.event.impl.DocumentEventContext;
 import org.nuxeo.ecm.core.work.AbstractWork;
-import org.nuxeo.ecm.core.work.api.WorkManager;
-
 import org.nuxeo.ecm.platform.filemanager.core.listener.MimetypeIconUpdater;
 import org.nuxeo.ecm.platform.mimetype.interfaces.MimetypeEntry;
 import org.nuxeo.ecm.platform.mimetype.interfaces.MimetypeRegistry;
@@ -40,18 +50,6 @@ import org.nuxeo.ecm.platform.threed.ThreeDInfo;
 import org.nuxeo.ecm.platform.threed.ThreeDRenderView;
 import org.nuxeo.ecm.platform.threed.TransmissionThreeD;
 import org.nuxeo.runtime.api.Framework;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import static org.nuxeo.ecm.core.api.CoreSession.ALLOW_VERSION_WRITE;
-import static org.nuxeo.ecm.platform.threed.ThreeDConstants.THREED_TYPE;
-import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.MAIN_INFO_PROPERTY;
-import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.RENDER_VIEWS_PROPERTY;
-import static org.nuxeo.ecm.platform.threed.ThreeDDocumentConstants.TRANSMISSIONS_PROPERTY;
 
 /**
  * Work running batch conversions to update 3D document type preview assets
@@ -235,19 +233,6 @@ public class ThreeDBatchUpdateWork extends AbstractWork {
      * document.
      */
     protected void fireThreeDConversionsDoneEvent(DocumentModel doc) {
-        WorkManager workManager = Framework.getService(WorkManager.class);
-        List<String> workIds = workManager.listWorkIds(CATEGORY_THREED_CONVERSION, null);
-        String idPrefix = computeIdPrefix(repositoryName, docId);
-        int worksCount = 0;
-        for (String workId : workIds) {
-            if (workId.startsWith(idPrefix)) {
-                if (++worksCount > 1) {
-                    // another work scheduled
-                    return;
-                }
-            }
-        }
-
         DocumentEventContext ctx = new DocumentEventContext(session, session.getPrincipal(), doc);
         Event event = ctx.newEvent(THREED_CONVERSIONS_DONE_EVENT);
         Framework.getService(EventService.class).fireEvent(event);
